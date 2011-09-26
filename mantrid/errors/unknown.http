@@ -1,0 +1,29 @@
+HTTP/1.0 503 Service Unavailable
+Cache-Control: no-cache
+Connection: close
+Content-Type: text/html
+
+<html>
+<head>
+    <title>Unknown Host</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        .footer {
+            color: #aaa;
+            border-top: 1px solid #aaa;
+            padding: 5px 0 0 0;
+            margin: 20px 0 0 0;
+            font-size: 70%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Unknown Host</h1>
+    <p>
+    The site you have tried to access is not known to this server.
+    </p>
+    <div class="footer">Powered by Mantrid</div>
+</body>
+</html>

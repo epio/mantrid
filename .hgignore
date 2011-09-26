@@ -1,0 +1,10 @@
+syntax: glob
+*.wpr
+*.bundle
+*.pyc
+*.swp
+*.swo
+*.un~
+*.egg-info
+*/pip-delete-this-directory.txt
+build/*
