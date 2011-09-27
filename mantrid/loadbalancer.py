@@ -5,7 +5,8 @@ import mimetools
 import resource
 from eventlet import wsgi
 from eventlet.green import socket
-from .actions import Unknown
+from .actions import Unknown, Proxy, Empty, Static, Redirect
+from .management import ManagementApp
 
 
 class Balancer(object):
@@ -14,6 +15,13 @@ class Balancer(object):
     """
 
     nofile = 102400
+    action_mapping = {
+        "proxy": Proxy,
+        "empty": Empty,
+        "static": Static,
+        "redirect": Redirect,
+        "unknown": Unknown,
+    }
 
     def __init__(self, listen_ports, management_port):
         """
@@ -43,15 +51,14 @@ class Balancer(object):
     def run(self):
         # First, initialise the process
         self.increase_limits()
-        from .actions import Proxy
         self.hosts = {
             "localhost": (
-                Proxy,
+                "proxy",
                 {"backends": [["127.0.0.1", 8042]]},
                 False,
             ),
             "local.ep.io": (
-                Proxy,
+                "proxy",
                 {"backends": [["127.0.0.1", 8042]]},
                 True,
             ),
@@ -84,19 +91,13 @@ class Balancer(object):
         """
         sock = eventlet.listen(("::", port), socket.AF_INET6)
         logging.info("Listening for management on port %i" % port)
+        management_app = ManagementApp(self)
         with open("/dev/null", "w") as log_dest:
             wsgi.server(
                 sock,
-                self.handle_management,
+                management_app.handle,
                 log = log_dest,
             )
-    
-    def handle_management(self, environ, start_response):
-        """
-        Handles a management port request. WSGI function.
-        """
-        start_response('200 OK', [('Content-Type', 'text/plain')])
-        return ['Hello, Boss!\r\n']
 
     ### Client handling ###
 
@@ -120,7 +121,8 @@ class Balancer(object):
             if subhost in self.hosts:
                 action, kwargs, allow_subs = self.hosts[subhost]
                 if allow_subs or i == 0:
-                    return action(host=host, **kwargs)
+                    action_class = self.action_mapping[action]
+                    return action_class(host=host, **kwargs)
         return Unknown(host)
 
     def handle(self, sock, address, internal=False):

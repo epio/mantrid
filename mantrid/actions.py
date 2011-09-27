@@ -19,14 +19,14 @@ class Action(object):
         raise NotImplementedError("You must use an Action subclass")
 
 
-class SendEmpty(Action):
+class Empty(Action):
     "Sends a code-only HTTP response"
 
     code = 500
     string = "Internal Server Error"
 
     def __init__(self, host, code=None, string=None):
-        super(SendEmpty, self).__init__(host)
+        super(Empty, self).__init__(host)
         if code is not None:
             self.code = code
             assert string is not None
@@ -41,13 +41,13 @@ class SendEmpty(Action):
                 raise
 
 
-class SendStatic(Action):
+class Static(Action):
     "Sends a static HTTP response"
 
     type = None
 
     def __init__(self, host, type=None):
-        super(SendStatic, self).__init__(host)
+        super(Static, self).__init__(host)
         if type is not None:
             self.type = type
     
@@ -62,7 +62,7 @@ class SendStatic(Action):
                 raise
 
 
-class Unknown(SendStatic):
+class Unknown(Static):
     "Standard class for 'nothing matched'"
 
     type = "unknown"
