@@ -6,6 +6,7 @@ import os
 import random
 import eventlet
 from eventlet.green import socket
+from httplib import responses
 from .socketmeld import SocketMelder
 
 
@@ -22,20 +23,16 @@ class Action(object):
 class Empty(Action):
     "Sends a code-only HTTP response"
 
-    code = 500
-    string = "Internal Server Error"
+    code = None
 
-    def __init__(self, host, code=None, string=None):
+    def __init__(self, host, code):
         super(Empty, self).__init__(host)
-        if code is not None:
-            self.code = code
-            assert string is not None
-            self.string = string
+        self.code = code
     
     def handle(self, sock, read_data, path, headers):
         "Sends back a static error page."
         try:
-            sock.sendall("HTTP/1.0 %s %s\r\nConnection: close\r\nContent-length: 0\r\n\r\n" % (self.code, self.string))
+            sock.sendall("HTTP/1.0 %s %s\r\nConnection: close\r\nContent-length: 0\r\n\r\n" % (self.code, responses.get(self.code, "Unknown")))
         except socket.error, e:
             if e.errno != 32:
                 raise

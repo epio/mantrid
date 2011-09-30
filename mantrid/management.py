@@ -24,7 +24,7 @@ class ManagementApp(object):
     the management port.
     """
 
-    host_regex = re.compile(r"^/host/([^/]+)/?$")
+    host_regex = re.compile(r"^/hostname/([^/]+)/?$")
 
     def __init__(self, balancer):
         self.balancer = balancer
@@ -70,8 +70,10 @@ class ManagementApp(object):
         elif self.host_regex.match(path):
             if method == "get":
                 return self.get_single
-            if method == "put":
+            elif method == "put":
                 return self.set_single
+            elif method == "delete":
+                return self.delete_single
             else:
                 raise HttpMethodNotAllowed()
         else:
@@ -90,8 +92,8 @@ class ManagementApp(object):
             return "host_details_not_list"
         if len(details) != 3:
             return "host_details_wrong_length"
-        if not details[0] not in self.balancer.action_mapping:
-            return "host_action_invalid"
+        if details[0] not in self.balancer.action_mapping:
+            return "host_action_invalid:%s" % details[0]
         if not isinstance(details[1], dict):
             return "host_kwargs_not_dict"
         if not isinstance(details[2], bool):
@@ -127,4 +129,12 @@ class ManagementApp(object):
         if error:
             raise HttpBadRequest("%s:%s" % (host, error))
         self.balancer.hosts[host] = body
+        return {"ok": True}
+
+    def delete_single(self, path, body):
+        host = self.host_regex.match(path).group(1)
+        try:
+            del self.balancer.hosts[host]
+        except KeyError:
+            pass
         return {"ok": True}

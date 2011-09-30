@@ -16,5 +16,6 @@ setup(
     entry_points = """
         [console_scripts]
         mantrid = mantrid.loadbalancer:Balancer.main
+        mantrid-client = mantrid_client.cli:MantridCli.main
     """,
 )
