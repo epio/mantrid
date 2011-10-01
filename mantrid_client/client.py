@@ -30,11 +30,11 @@ class MantridClient(object):
     
     def get_all(self):
         "Returns all endpoints"
-        return self._request("/", "GET")
+        return self._request("/hostname/", "GET")
     
     def set_all(self, data):
         "Sets all endpoints"
-        return self._request("/", "PUT", data)
+        return self._request("/hostname/", "PUT", data)
     
     def set(self, hostname, entry):
         "Sets endpoint for a single hostname"

@@ -23,7 +23,7 @@ class Balancer(object):
         "unknown": Unknown,
     }
 
-    def __init__(self, listen_ports, management_port):
+    def __init__(self, listen_ports, management_port, state_file):
         """
         Constructor.
 
@@ -35,6 +35,7 @@ class Balancer(object):
         """
         self.listen_ports = listen_ports
         self.management_port = management_port
+        self.state_file = state_file
     
     @classmethod
     def main(cls):

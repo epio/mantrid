@@ -61,6 +61,8 @@ class ManagementApp(object):
     def route(self, path, method):
         # Simple routing for paths
         if path == "/":
+            raise HttpMethodNotAllowed()
+        elif path == "/hostname/":
             if method == "get":
                 return self.get_all
             elif method == "put":
