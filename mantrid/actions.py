@@ -13,8 +13,9 @@ from .socketmeld import SocketMelder
 class Action(object):
     "Base action. Doesn't do anything."
 
-    def __init__(self, host):
+    def __init__(self, balancer, host):
         self.host = host
+        self.balancer = balancer
 
     def handle(self, sock, read_data, path, headers):
         raise NotImplementedError("You must use an Action subclass")
@@ -25,8 +26,8 @@ class Empty(Action):
 
     code = None
 
-    def __init__(self, host, code):
-        super(Empty, self).__init__(host)
+    def __init__(self, balancer, host, code):
+        super(Empty, self).__init__(balancer, host)
         self.code = code
     
     def handle(self, sock, read_data, path, headers):
@@ -43,8 +44,8 @@ class Static(Action):
 
     type = None
 
-    def __init__(self, host, type=None):
-        super(Static, self).__init__(host)
+    def __init__(self, balancer, host, type=None):
+        super(Static, self).__init__(balancer, host)
         if type is not None:
             self.type = type
     
@@ -65,13 +66,19 @@ class Unknown(Static):
     type = "unknown"
 
 
+class NoHosts(Static):
+    "Standard class for 'there are no host entries at all'"
+
+    type = "no-hosts"
+
+
 class Redirect(Action):
     "Sends a redirect"
 
     type = None
 
-    def __init__(self, host, redirect_to):
-        super(Redirect, self).__init__(host)
+    def __init__(self, balancer, host, redirect_to):
+        super(Redirect, self).__init__(balancer, host)
         self.redirect_to = redirect_to
         assert "://" in self.redirect_to
 
@@ -93,8 +100,8 @@ class Proxy(Action):
     attempts = 1
     delay = 1
 
-    def __init__(self, host, backends, attempts=None, delay=None):
-        super(Proxy, self).__init__(host)
+    def __init__(self, balancer, host, backends, attempts=None, delay=None):
+        super(Proxy, self).__init__(balancer, host)
         self.backends = backends
         assert self.backends
         if attempts is not None:
@@ -122,3 +129,26 @@ class Proxy(Action):
             except socket.error, e:
                 if e.errno != 32:
                     raise
+
+
+class Spin(Action):
+    """
+    Just holds the request open until either the timeout expires, or
+    another action becomes available.
+    """
+
+    timeout = 120
+    check_interval = 5
+
+    def handle(self, sock, read_data, path, headers):
+        "Just waits, and checks for other actions to replace us"
+        for i in range(self.timeout // self.check_interval):
+            # Sleep first
+            eventlet.sleep(self.check_interval)
+            # Check for another action
+            action = self.balancer.resolve_host(self.host)
+            if not isinstance(action, Spin):
+                return action.handle(sock, read_data, path, headers)
+        # OK, nothing happened, so give up.
+        action = Static(self.balancer, self.host, type="timeout")
+        action.handle

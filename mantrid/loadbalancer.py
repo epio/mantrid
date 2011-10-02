@@ -3,9 +3,12 @@ import logging
 import traceback
 import mimetools
 import resource
+import json
+import os
+import sys
 from eventlet import wsgi
 from eventlet.green import socket
-from .actions import Unknown, Proxy, Empty, Static, Redirect
+from .actions import Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin
 from .management import ManagementApp
 
 
@@ -15,12 +18,14 @@ class Balancer(object):
     """
 
     nofile = 102400
+    save_interval = 10
     action_mapping = {
         "proxy": Proxy,
         "empty": Empty,
         "static": Static,
         "redirect": Redirect,
         "unknown": Unknown,
+        "spin": Spin,
     }
 
     def __init__(self, listen_ports, management_port, state_file):
@@ -39,33 +44,48 @@ class Balancer(object):
     
     @classmethod
     def main(cls):
-        balancer = cls({80: False}, 8042)
+        # Set up logging
+        logger = logging.getLogger()
+        logger.setLevel(("--debug" in sys.argv) and logging.DEBUG or logging.INFO)
+        # Output to stderr, always
+        sh = logging.StreamHandler()
+        sh.setFormatter(logging.Formatter(
+            fmt = "%(asctime)s - %(levelname)8s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        ))
+        sh.setLevel(logging.DEBUG)
+        logger.addHandler(sh)
+        # Check they have root access
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (cls.nofile, cls.nofile))
+        except resource.error:
+            logging.warning("Cannot raise resource limits (run as root/change ulimits)")
+        balancer = cls({80: False}, 8042, "/tmp/mantrid.state")
         balancer.run()
 
-    def increase_limits(self):
-        # Increase resource limits
-        resource.setrlimit(resource.RLIMIT_NOFILE, (self.nofile, self.nofile))
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        assert soft == self.nofile
-        assert hard == self.nofile
+    def load(self):
+        "Loads the state from the state file"
+        try:
+            with open(self.state_file) as fh:
+                hosts = json.load(fh)
+                assert isinstance(hosts, dict)
+                self.hosts = hosts
+        except IOError:
+            # There is no state file; start empty.
+            if not os.path.exists(self.state_file):
+                self.hosts = {}
 
+    def save(self):
+        "Saves the state to the state file"
+        with open(self.state_file, "w") as fh:
+            json.dump(self.hosts, fh)
+    
     def run(self):
         # First, initialise the process
-        self.increase_limits()
-        self.hosts = {
-            "localhost": (
-                "proxy",
-                {"backends": [["127.0.0.1", 8042]]},
-                False,
-            ),
-            "local.ep.io": (
-                "proxy",
-                {"backends": [["127.0.0.1", 8042]]},
-                True,
-            ),
-        }
+        self.load()
         # Then, launch the socket loops
-        pool = eventlet.GreenPile(len(self.listen_ports) + 1)
+        pool = eventlet.GreenPile(len(self.listen_ports) + 2)
+        pool.spawn(self.save_loop)
         pool.spawn(self.management_loop, self.management_port)
         for port, internal in self.listen_ports.items():
             pool.spawn(self.listen_loop, port, internal)
@@ -85,6 +105,18 @@ class Balancer(object):
         logging.info("Exiting")
 
     ### Management ###
+
+    def save_loop(self):
+        """
+        Saves the state if it has changed.
+        """
+        last_hash = hash(repr(self.hosts))
+        while True:
+            eventlet.sleep(self.save_interval)
+            next_hash = hash(repr(self.hosts))
+            if next_hash != last_hash:
+                self.save()
+                last_hash = next_hash
 
     def management_loop(self, port):
         """
@@ -106,7 +138,16 @@ class Balancer(object):
         """
         Accepts incoming connections.
         """
-        sock = eventlet.listen(("::", port), socket.AF_INET6)
+        try:
+            sock = eventlet.listen(("::", port), socket.AF_INET6)
+        except socket.error, e:
+            if e.errno == 98:
+                logging.critical("Cannot listen on port %s" % port)
+                return
+            elif e.errno == 13 and port <= 1024:
+                logging.critical("Cannot listen on port %s (you must launch as root)" % port)
+                return
+            raise
         logging.info("Listening for requests on port %i" % port)
         eventlet.serve(
             sock,
@@ -115,6 +156,9 @@ class Balancer(object):
         )
 
     def resolve_host(self, host):
+        # Special case for empty hosts dict
+        if not self.hosts:
+            return NoHosts(self, host)
         # Check for an exact or any subdomain matches
         bits = host.split(".")
         for i in range(len(bits)):
@@ -123,8 +167,8 @@ class Balancer(object):
                 action, kwargs, allow_subs = self.hosts[subhost]
                 if allow_subs or i == 0:
                     action_class = self.action_mapping[action]
-                    return action_class(host=host, **kwargs)
-        return Unknown(host)
+                    return action_class(balancer=self, host=host, **kwargs)
+        return Unknown(self, host)
 
     def handle(self, sock, address, internal=False):
         """
@@ -137,7 +181,7 @@ class Balancer(object):
             words = first.split()
             # Ensure it looks kind of like HTTP
             if not (2 <= len(words) <= 3):
-                self.send_error(sock, 400, "Bad request syntax (%r)" % first)
+                sock.sendall("HTTP/1.0 400 Bad Request\r\nConnection: close\r\nContent-length: 0\r\n\r\n")
                 return
             path = words[1]
             # Read the headers
