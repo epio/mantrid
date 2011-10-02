@@ -86,7 +86,7 @@ class Redirect(Action):
         "Sends back a static error page."
         try:
             sock.sendall("HTTP/1.0 302 Found\r\nLocation: %s/%s\r\n\r\n" % (
-                self.redirect_to,
+                self.redirect_to.rstrip("/"),
                 path.lstrip("/"),
             ))
         except socket.error, e:
@@ -140,6 +140,13 @@ class Spin(Action):
     timeout = 120
     check_interval = 5
 
+    def __init__(self, balancer, host, timeout=None, check_interval=None):
+        super(Spin, self).__init__(balancer, host)
+        if timeout is not None:
+            self.timeout = int(timeout)
+        if check_interval is not None:
+            self.check_interval = int(check_interval)
+
     def handle(self, sock, read_data, path, headers):
         "Just waits, and checks for other actions to replace us"
         for i in range(self.timeout // self.check_interval):
@@ -151,4 +158,4 @@ class Spin(Action):
                 return action.handle(sock, read_data, path, headers)
         # OK, nothing happened, so give up.
         action = Static(self.balancer, self.host, type="timeout")
-        action.handle
+        return action.handle(sock, read_data, path, headers)
