@@ -25,3 +25,8 @@ class StatsSocket(object):
         recvd = self.sock.recv(length)
         self.bytes_received += len(recvd)
         return recvd
+
+    def makefile(self, *args, **kwargs):
+        fh = self.sock.makefile(*args, **kwargs)
+        fh._sock = self
+        return fh
