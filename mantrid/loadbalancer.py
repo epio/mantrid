@@ -201,7 +201,11 @@ class Balancer(object):
             # Read the headers
             headers = mimetools.Message(rfile, 0)
             # Work out the host
-            host = headers['Host']
+            try:
+                host = headers['Host']
+            except KeyError:
+                self.send_error(sock, 404, "Not Found")
+                return
             headers['Connection'] = "close"
             if not internal:
                 headers['X-Forwarded-For'] = address[0]
