@@ -25,6 +25,7 @@ class ManagementApp(object):
     """
 
     host_regex = re.compile(r"^/hostname/([^/]+)/?$")
+    stats_host_regex = re.compile(r"^/stats/([^/]+)/?$")
 
     def __init__(self, balancer):
         self.balancer = balancer
@@ -62,6 +63,16 @@ class ManagementApp(object):
         # Simple routing for paths
         if path == "/":
             raise HttpMethodNotAllowed()
+        elif path == "/stats/":
+            if method == "get":
+                return self.get_all_stats
+            else:
+                raise HttpMethodNotAllowed()
+        elif self.stats_host_regex.match(path):
+            if method == "get":
+                return self.get_single_stats
+            else:
+                raise HttpMethodNotAllowed()
         elif path == "/hostname/":
             if method == "get":
                 return self.get_all
@@ -115,7 +126,17 @@ class ManagementApp(object):
             if error:
                 raise HttpBadRequest("%s:%s" % (hostname, error))
         # Replace
+        old_hostnames = set(self.balancer.hosts.keys())
+        new_hostnames = set(body.keys())
         self.balancer.hosts = body
+        # Clean up stats dict
+        for hostname in new_hostnames - old_hostnames:
+            self.balancer.stats[hostname] = {}
+        for hostname in old_hostnames - new_hostnames:
+            try:
+                del self.balancer.stats[hostname]
+            except KeyError:
+                pass
         return {"ok": True}
 
     def get_single(self, path, body):
@@ -131,6 +152,7 @@ class ManagementApp(object):
         if error:
             raise HttpBadRequest("%s:%s" % (host, error))
         self.balancer.hosts[host] = body
+        self.balancer.stats[host] = {}
         return {"ok": True}
 
     def delete_single(self, path, body):
@@ -139,4 +161,15 @@ class ManagementApp(object):
             del self.balancer.hosts[host]
         except KeyError:
             pass
+        try:
+            del self.balancer.stats[host]
+        except KeyError:
+            pass
         return {"ok": True}
+
+    def get_all_stats(self, path, body):
+        return self.balancer.stats
+
+    def get_single_stats(self, path, body):
+        host = self.stats_host_regex.match(path).group(1)
+        return self.balancer.stats.get(host, {})

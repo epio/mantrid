@@ -125,3 +125,16 @@ class MantridCli(object):
         self.client.delete(
             hostname,
         )
+    
+    def action_stats(self, hostname=None):
+        "Shows stats (possibly limited by hostname)"
+        format = "%-35s %-8s %-8s %-8s %-8s"
+        print format % ("HOST", "OPEN", "COMPLETED", "BYTES IN", "BYTES OUT")
+        for host, details in sorted(self.client.stats(hostname).items()):
+            print format % (
+                host,
+                details.get("open_requests", 0),
+                details.get("completed_requests", 0),
+                details.get("bytes_received", 0),
+                details.get("bytes_sent", 0),
+            )

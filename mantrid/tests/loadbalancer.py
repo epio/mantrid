@@ -3,20 +3,6 @@ from ..loadbalancer import Balancer
 from ..actions import Empty, Unknown, Redirect, Spin
 
 
-class MockSocket(object):
-    "Fake Socket class that remembers what was sent"
-
-    def __init__(self):
-        self.data = ""
-
-    def send(self, data):
-        self.data += data
-        return len(data)
-    
-    def sendall(self, data):
-        self.data += data
-
-
 class BalancerTests(TestCase):
     "Tests the main load balancer class itself"
 

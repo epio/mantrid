@@ -1,4 +1,8 @@
-import httplib2
+try:
+    import eventlet
+    httplib2 = eventlet.import_patched("httplib2")
+except ImportError:
+    import httplib2
 import json
 
 
@@ -43,3 +47,9 @@ class MantridClient(object):
     def delete(self, hostname):
         "Deletes a single hostname"
         return self._request("/hostname/%s/" % hostname, "DELETE")
+
+    def stats(self, hostname=None):
+        if hostname:
+            return self._request("/stats/%s/" % hostname, "GET")
+        else:
+            return self._request("/stats/", "GET")

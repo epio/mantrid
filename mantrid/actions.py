@@ -13,9 +13,10 @@ from .socketmeld import SocketMelder
 class Action(object):
     "Base action. Doesn't do anything."
 
-    def __init__(self, balancer, host):
+    def __init__(self, balancer, host, matched_host):
         self.host = host
         self.balancer = balancer
+        self.matched_host = matched_host
 
     def handle(self, sock, read_data, path, headers):
         raise NotImplementedError("You must use an Action subclass")
@@ -26,8 +27,8 @@ class Empty(Action):
 
     code = None
 
-    def __init__(self, balancer, host, code):
-        super(Empty, self).__init__(balancer, host)
+    def __init__(self, balancer, host, matched_host, code):
+        super(Empty, self).__init__(balancer, host, matched_host)
         self.code = code
     
     def handle(self, sock, read_data, path, headers):
@@ -44,8 +45,8 @@ class Static(Action):
 
     type = None
 
-    def __init__(self, balancer, host, type=None):
-        super(Static, self).__init__(balancer, host)
+    def __init__(self, balancer, host, matched_host, type=None):
+        super(Static, self).__init__(balancer, host, matched_host)
         if type is not None:
             self.type = type
     
@@ -77,8 +78,8 @@ class Redirect(Action):
 
     type = None
 
-    def __init__(self, balancer, host, redirect_to):
-        super(Redirect, self).__init__(balancer, host)
+    def __init__(self, balancer, host, matched_host, redirect_to):
+        super(Redirect, self).__init__(balancer, host, matched_host)
         self.redirect_to = redirect_to
         assert "://" in self.redirect_to
 
@@ -100,8 +101,8 @@ class Proxy(Action):
     attempts = 1
     delay = 1
 
-    def __init__(self, balancer, host, backends, attempts=None, delay=None):
-        super(Proxy, self).__init__(balancer, host)
+    def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None):
+        super(Proxy, self).__init__(balancer, host, matched_host)
         self.backends = backends
         assert self.backends
         if attempts is not None:
@@ -140,8 +141,8 @@ class Spin(Action):
     timeout = 120
     check_interval = 5
 
-    def __init__(self, balancer, host, timeout=None, check_interval=None):
-        super(Spin, self).__init__(balancer, host)
+    def __init__(self, balancer, host, matched_host, timeout=None, check_interval=None):
+        super(Spin, self).__init__(balancer, host, matched_host)
         if timeout is not None:
             self.timeout = int(timeout)
         if check_interval is not None:
@@ -157,5 +158,5 @@ class Spin(Action):
             if not isinstance(action, Spin):
                 return action.handle(sock, read_data, path, headers)
         # OK, nothing happened, so give up.
-        action = Static(self.balancer, self.host, type="timeout")
+        action = Static(self.balancer, self.host, self.matched_host, type="timeout")
         return action.handle(sock, read_data, path, headers)

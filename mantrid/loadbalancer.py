@@ -10,6 +10,7 @@ from eventlet import wsgi
 from eventlet.green import socket
 from .actions import Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin
 from .management import ManagementApp
+from .stats_socket import StatsSocket
 
 
 class Balancer(object):
@@ -58,7 +59,7 @@ class Balancer(object):
         # Check they have root access
         try:
             resource.setrlimit(resource.RLIMIT_NOFILE, (cls.nofile, cls.nofile))
-        except resource.error:
+        except (ValueError, resource.error):
             logging.warning("Cannot raise resource limits (run as root/change ulimits)")
         balancer = cls({80: False}, 8042, "/tmp/mantrid.state")
         balancer.run()
@@ -67,22 +68,28 @@ class Balancer(object):
         "Loads the state from the state file"
         try:
             with open(self.state_file) as fh:
-                hosts = json.load(fh)
-                assert isinstance(hosts, dict)
-                self.hosts = hosts
+                state = json.load(fh)
+                assert isinstance(state, dict)
+                self.hosts = state['hosts']
+                self.stats = state['stats']
         except IOError:
             # There is no state file; start empty.
             if not os.path.exists(self.state_file):
                 self.hosts = {}
-
+                self.stats = {}
+ 
     def save(self):
         "Saves the state to the state file"
         with open(self.state_file, "w") as fh:
-            json.dump(self.hosts, fh)
+            json.dump({
+                "hosts": self.hosts,
+                "stats": self.stats,
+            }, fh)
     
     def run(self):
         # First, initialise the process
         self.load()
+        self.running = True
         # Then, launch the socket loops
         pool = eventlet.GreenPile(len(self.listen_ports) + 2)
         pool.spawn(self.save_loop)
@@ -102,6 +109,7 @@ class Balancer(object):
             # If any loop dies, kill the entire process
             return
         # We're done
+        self.running = False
         logging.info("Exiting")
 
     ### Management ###
@@ -111,7 +119,7 @@ class Balancer(object):
         Saves the state if it has changed.
         """
         last_hash = hash(repr(self.hosts))
-        while True:
+        while self.running:
             eventlet.sleep(self.save_interval)
             next_hash = hash(repr(self.hosts))
             if next_hash != last_hash:
@@ -158,7 +166,7 @@ class Balancer(object):
     def resolve_host(self, host):
         # Special case for empty hosts dict
         if not self.hosts:
-            return NoHosts(self, host)
+            return NoHosts(self, host, "unknown")
         # Check for an exact or any subdomain matches
         bits = host.split(".")
         for i in range(len(bits)):
@@ -167,14 +175,20 @@ class Balancer(object):
                 action, kwargs, allow_subs = self.hosts[subhost]
                 if allow_subs or i == 0:
                     action_class = self.action_mapping[action]
-                    return action_class(balancer=self, host=host, **kwargs)
-        return Unknown(self, host)
+                    return action_class(
+                        balancer = self,
+                        host = host,
+                        matched_host = subhost,
+                        **kwargs
+                    )
+        return Unknown(self, host, "unknown")
 
     def handle(self, sock, address, internal=False):
         """
         Handles an incoming HTTP connection.
         """
         try:
+            sock = StatsSocket(sock)
             rfile = sock.makefile('rb', 4096)
             # Read the first line
             first = rfile.readline().strip("\r\n")
@@ -198,14 +212,23 @@ class Balancer(object):
                 return
             # Match the host to an action
             action = self.resolve_host(host)
+            # Record us as an open connection
+            stats_dict = self.stats.setdefault(action.matched_host, {})
+            stats_dict['open_requests'] = stats_dict.get('open_requests', 0) + 1
             # Run the action
-            rfile._rbuf.seek(0)
-            action.handle(
-                sock = sock,
-                read_data = first + "\r\n" + str(headers) + "\r\n" + rfile._rbuf.read(),
-                path = path,
-                headers = headers,
-            )
+            try:
+                rfile._rbuf.seek(0)
+                action.handle(
+                    sock = sock,
+                    read_data = first + "\r\n" + str(headers) + "\r\n" + rfile._rbuf.read(),
+                    path = path,
+                    headers = headers,
+                )
+            finally:
+                stats_dict['open_requests'] -= 1
+                stats_dict['completed_requests'] = stats_dict.get('completed_requests', 0) + 1
+                stats_dict['bytes_sent'] = stats_dict.get('bytes_sent', 0) + sock.bytes_sent
+                stats_dict['bytes_received'] = stats_dict.get('bytes_received', 0) + sock.bytes_received
         except socket.error, e:
             if e.errno != 32:
                 logging.error(traceback.format_exc())
