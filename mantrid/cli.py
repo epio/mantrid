@@ -128,7 +128,7 @@ class MantridCli(object):
     
     def action_stats(self, hostname=None):
         "Shows stats (possibly limited by hostname)"
-        format = "%-35s %-8s %-8s %-8s %-8s"
+        format = "%-35s %-11s %-11s %-11s %-11s"
         print format % ("HOST", "OPEN", "COMPLETED", "BYTES IN", "BYTES OUT")
         for host, details in sorted(self.client.stats(hostname).items()):
             print format % (
