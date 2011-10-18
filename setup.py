@@ -13,6 +13,11 @@ setup(
     version = __version__,
     description = 'A pure-Python loadbalancer.',
     packages = find_packages("."),
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'License :: OSI Approved :: BSD License',
+        'Programming Language :: Python',
+    ],
     entry_points = """
         [console_scripts]
         mantrid = mantrid.loadbalancer:Balancer.main
