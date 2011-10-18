@@ -29,7 +29,7 @@ class Balancer(object):
         "spin": Spin,
     }
 
-    def __init__(self, listen_ports, management_port, state_file):
+    def __init__(self, listen_ports, management_port, state_file, uid=None, gid=65535):
         """
         Constructor.
 
@@ -42,6 +42,8 @@ class Balancer(object):
         self.listen_ports = listen_ports
         self.management_port = management_port
         self.state_file = state_file
+        self.uid = uid
+        self.gid = gid
     
     @classmethod
     def main(cls):
@@ -61,7 +63,13 @@ class Balancer(object):
             resource.setrlimit(resource.RLIMIT_NOFILE, (cls.nofile, cls.nofile))
         except (ValueError, resource.error):
             logging.warning("Cannot raise resource limits (run as root/change ulimits)")
-        balancer = cls({80: False}, 8042, "/tmp/mantrid.state")
+        balancer = cls(
+            {80: False},
+            8042,
+            "/tmp/mantrid.state",
+            4321,
+            4321,
+        )
         balancer.run()
 
     def load(self):
@@ -90,12 +98,51 @@ class Balancer(object):
         # First, initialise the process
         self.load()
         self.running = True
+        # Try to ensure the state file is readable
+        state_dir = os.path.dirname(self.state_file)
+        if not os.path.isdir(state_dir):
+            os.makedirs(state_dir)
+        if self.uid is not None:
+            try:
+                os.chown(state_dir, self.uid, -1)
+            except OSError:
+                pass
+            try:
+                os.chown(self.state_file, self.uid, -1)
+            except OSError:
+                pass
         # Then, launch the socket loops
         pool = eventlet.GreenPile(len(self.listen_ports) + 2)
         pool.spawn(self.save_loop)
         pool.spawn(self.management_loop, self.management_port)
         for port, internal in self.listen_ports.items():
             pool.spawn(self.listen_loop, port, internal)
+        # Give the other threads a chance to open their listening sockets
+        eventlet.sleep(0.5)
+        # Drop to the lesser UID/GIDs, if supplied
+        if self.gid:
+            try:
+                os.setegid(self.gid)
+                os.setgid(self.gid)
+            except OSError:
+                logging.error("Cannot change to GID %i (probably not running as root)" % self.gid)
+            else:
+                logging.info("Dropped to GID %i" % self.gid)
+        if self.uid:
+            try:
+                os.seteuid(0)
+                os.setuid(self.uid)
+                os.seteuid(self.uid)
+            except OSError:
+                logging.error("Cannot change to UID %i (probably not running as root)" % self.uid)
+            else:
+                logging.info("Dropped to UID %i" % self.uid)
+        # Ensure we can save to the state file, or die hard.
+        try:
+            open(self.state_file, "a").close()
+        except (OSError, IOError):
+            logging.critical("Cannot write to state file %s" % self.state_file)
+            sys.exit(1)
         # Wait for one to exit, or for a clean/forced shutdown
         try:
             pool.next()
@@ -131,6 +178,9 @@ class Balancer(object):
         Accepts management requests.
         """
         sock = eventlet.listen(("::", port), socket.AF_INET6)
+        # Sleep to ensure we've dropped privileges by the time we start serving
+        eventlet.sleep(0.5)
+        # Actually serve management
         logging.info("Listening for management on port %i" % port)
         management_app = ManagementApp(self)
         with open("/dev/null", "w") as log_dest:
@@ -156,6 +206,9 @@ class Balancer(object):
                 logging.critical("Cannot listen on port %s (you must launch as root)" % port)
                 return
             raise
+        # Sleep to ensure we've dropped privileges by the time we start serving
+        eventlet.sleep(0.5)
+        # Start serving
         logging.info("Listening for requests on port %i" % port)
         eventlet.serve(
             sock,
