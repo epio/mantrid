@@ -6,11 +6,14 @@ import resource
 import json
 import os
 import sys
+import argparse
 from eventlet import wsgi
 from eventlet.green import socket
 from .actions import Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin
+from .config import SimpleConfig
 from .management import ManagementApp
 from .stats_socket import StatsSocket
+from .greenbody import GreenBody
 
 
 class Balancer(object):
@@ -29,7 +32,7 @@ class Balancer(object):
         "spin": Spin,
     }
 
-    def __init__(self, listen_ports, management_port, state_file, uid=None, gid=65535):
+    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535):
         """
         Constructor.
 
@@ -39,17 +42,23 @@ class Balancer(object):
         Internal endpoints do not have X-Forwarded-* stripped;
         other ones do, and have X-Forwarded-For added.
         """
-        self.listen_ports = listen_ports
-        self.management_port = management_port
+        self.external_addresses = external_addresses
+        self.internal_addresses = internal_addresses
+        self.management_addresses = management_addresses
         self.state_file = state_file
         self.uid = uid
         self.gid = gid
     
     @classmethod
     def main(cls):
+        # Parse command-line args
+        parser = argparse.ArgumentParser(description='The Mantrid load balancer')
+        parser.add_argument('--debug', dest='debug', action='store_const', const=True, help='Enable debug logging')
+        parser.add_argument('-c', '--config', dest='config', default=None, metavar="PATH", help='Path to the configuration file')
+        args = parser.parse_args()
         # Set up logging
         logger = logging.getLogger()
-        logger.setLevel(("--debug" in sys.argv) and logging.DEBUG or logging.INFO)
+        logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
         # Output to stderr, always
         sh = logging.StreamHandler()
         sh.setFormatter(logging.Formatter(
@@ -63,28 +72,41 @@ class Balancer(object):
             resource.setrlimit(resource.RLIMIT_NOFILE, (cls.nofile, cls.nofile))
         except (ValueError, resource.error):
             logging.warning("Cannot raise resource limits (run as root/change ulimits)")
+        # Load settings from the config file
+        if args.config is None:
+            if os.path.exists("/etc/mantrid/mantrid.conf"):
+                args.config = "/etc/mantrid/mantrid.conf"
+                logging.info("Using configuration file %s" % args.config)
+            else:
+                args.config = "/dev/null"
+                logging.info("No configuration file found - using defaults.")
+        else:
+            logging.info("Using configuration file %s" % args.config)
+        config = SimpleConfig(args.config)
         balancer = cls(
-            {80: False},
-            8042,
-            "/tmp/mantrid.state",
-            4321,
-            4321,
+            config.get_all_addresses("bind", set([(("::", 80), socket.AF_INET6)])),
+            config.get_all_addresses("bind_internal"),
+            config.get_all_addresses("bind_management", set([(("127.0.0.1", 8042), socket.AF_INET), (("::1", 8042), socket.AF_INET6)])),
+            config.get("state_file", "/var/lib/mantrid/state.json"),
+            config.get_int("uid", 4321),
+            config.get_int("gid", 4321),
         )
         balancer.run()
 
     def load(self):
         "Loads the state from the state file"
         try:
+            if os.path.getsize(self.state_file) <= 1:
+                raise IOError("File is empty.")
             with open(self.state_file) as fh:
                 state = json.load(fh)
                 assert isinstance(state, dict)
                 self.hosts = state['hosts']
                 self.stats = state['stats']
-        except IOError:
+        except (IOError, OSError):
             # There is no state file; start empty.
-            if not os.path.exists(self.state_file):
-                self.hosts = {}
-                self.stats = {}
+            self.hosts = {}
+            self.stats = {}
  
     def save(self):
         "Saves the state to the state file"
@@ -112,11 +134,19 @@ class Balancer(object):
             except OSError:
                 pass
         # Then, launch the socket loops
-        pool = eventlet.GreenPile(len(self.listen_ports) + 2)
+        pool = GreenBody(
+            len(self.external_addresses) +
+            len(self.internal_addresses) +
+            len(self.management_addresses) +
+            1
+        )
         pool.spawn(self.save_loop)
-        pool.spawn(self.management_loop, self.management_port)
-        for port, internal in self.listen_ports.items():
-            pool.spawn(self.listen_loop, port, internal)
+        for address, family in self.external_addresses:
+            pool.spawn(self.listen_loop, address, family, internal=False)
+        for address, family in self.internal_addresses:
+            pool.spawn(self.listen_loop, address, family, internal=True)
+        for address, family in self.management_addresses:
+            pool.spawn(self.management_loop, address, family)
         # Give the other threads a chance to open their listening sockets
         eventlet.sleep(0.5)
         # Drop to the lesser UID/GIDs, if supplied
@@ -145,16 +175,11 @@ class Balancer(object):
             sys.exit(1)
         # Wait for one to exit, or for a clean/forced shutdown
         try:
-            pool.next()
+            pool.wait()
         except (KeyboardInterrupt, StopIteration, SystemExit):
-            return
+            pass
         except:
-            # The main loop died with an exception
             logging.error(traceback.format_exc())
-            return
-        else:
-            # If any loop dies, kill the entire process
-            return
         # We're done
         self.running = False
         logging.info("Exiting")
@@ -173,15 +198,19 @@ class Balancer(object):
                 self.save()
                 last_hash = next_hash
 
-    def management_loop(self, port):
+    def management_loop(self, address, family):
         """
         Accepts management requests.
         """
-        sock = eventlet.listen(("::", port), socket.AF_INET6)
+        try:
+            sock = eventlet.listen(address, family)
+        except socket.error, e:
+            logging.critical("Cannot listen on (%s, %s): %s" % (address, family, e))
+            return
         # Sleep to ensure we've dropped privileges by the time we start serving
         eventlet.sleep(0.5)
         # Actually serve management
-        logging.info("Listening for management on port %i" % port)
+        logging.info("Listening for management on %s" % (address, ))
         management_app = ManagementApp(self)
         with open("/dev/null", "w") as log_dest:
             wsgi.server(
@@ -192,24 +221,25 @@ class Balancer(object):
 
     ### Client handling ###
 
-    def listen_loop(self, port, internal=False):
+    def listen_loop(self, address, family, internal=False):
         """
         Accepts incoming connections.
         """
         try:
-            sock = eventlet.listen(("::", port), socket.AF_INET6)
+            sock = eventlet.listen(address, family)
         except socket.error, e:
             if e.errno == 98:
-                logging.critical("Cannot listen on port %s" % port)
+                logging.critical("Cannot listen on (%s, %s): already in use" % (address, family))
+                raise
+            elif e.errno == 13 and address[1] <= 1024:
+                logging.critical("Cannot listen on (%s, %s) (you might need to launch as root)" % (address, family))
                 return
-            elif e.errno == 13 and port <= 1024:
-                logging.critical("Cannot listen on port %s (you must launch as root)" % port)
-                return
-            raise
+            logging.critical("Cannot listen on (%s, %s): %s" % (address, family, e))
+            return
         # Sleep to ensure we've dropped privileges by the time we start serving
         eventlet.sleep(0.5)
         # Start serving
-        logging.info("Listening for requests on port %i" % port)
+        logging.info("Listening for requests on %s" % (address, ))
         eventlet.serve(
             sock,
             lambda sock, addr: self.handle(sock, addr, internal),
