@@ -2,6 +2,11 @@ This is Mantrid, a pure-Python load balancer designed for environments with larg
 
 It trades some raw speed for flexibility, but is still designed to be fast; the aim is to have latency of no more than 10ms, and no more than a 10% reduction in throughput.
 
+COMPATABILITY
+=============
+
+Mantrid is designed to work with Python 2.6 or 2.7, and requires a Python implementation that supports greenlets (so either CPython or PyPy 1.7 and up).
+
 
 CONFIGURATION
 =============

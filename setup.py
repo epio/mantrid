@@ -11,9 +11,11 @@ from mantrid import __version__
 setup(
     name = 'mantrid',
     version = __version__,
+    author = "Epio Limited",
+    author_email= "team@ep.io",
     description = 'A pure-Python loadbalancer.',
     packages = find_packages("."),
-    classifiers=[
+    classifiers = [
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
@@ -23,4 +25,11 @@ setup(
         mantrid = mantrid.loadbalancer:Balancer.main
         mantrid-client = mantrid.cli:MantridCli.main
     """,
+    package_data = {
+        "mantrid": ["errors/*.http"],
+    },
+    requires = [
+        "argparse",
+        "eventlet (>=0.9.16)",
+    ],
 )
