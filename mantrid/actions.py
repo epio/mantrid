@@ -54,8 +54,12 @@ class Static(Action):
         "Sends back a static error page."
         assert self.type is not None
         try:
-            with open(os.path.join(os.path.dirname(__file__), "errors", "%s.http" % self.type)) as fh:
-                sock.sendall(fh.read())
+            try:
+                with open(os.path.join(self.balancer.static_dir, "%s.http" % self.type)) as fh:
+                    sock.sendall(fh.read())
+            except IOError:
+                with open(os.path.join(os.path.dirname(__file__), "static", "%s.http" % self.type)) as fh:
+                    sock.sendall(fh.read())
         except socket.error, e:
             if e.errno != 32:
                 raise

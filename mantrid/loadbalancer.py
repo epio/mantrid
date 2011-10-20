@@ -32,7 +32,7 @@ class Balancer(object):
         "spin": Spin,
     }
 
-    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535):
+    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/"):
         """
         Constructor.
 
@@ -48,6 +48,7 @@ class Balancer(object):
         self.state_file = state_file
         self.uid = uid
         self.gid = gid
+        self.static_dir = static_dir
     
     @classmethod
     def main(cls):
@@ -90,6 +91,7 @@ class Balancer(object):
             config.get("state_file", "/var/lib/mantrid/state.json"),
             config.get_int("uid", 4321),
             config.get_int("gid", 4321),
+            config.get("static_dir", "/etc/mantrid/static/"),
         )
         balancer.run()
 
