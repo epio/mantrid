@@ -90,7 +90,7 @@ class Redirect(Action):
         "Sends back a static error page."
         if "://" not in self.redirect_to:
             destination = "http%s://%s" % (
-                "s" if headers.get('X-Forwarded-Protocol', "").lower() in ("https", "ssl") else "",
+                "s" if headers.get('X-Forwarded-Protocol', headers.get('X-Forwarded-Proto', "")).lower() in ("https", "ssl") else "",
                 self.redirect_to
             )
         else:

@@ -296,12 +296,16 @@ class Balancer(object):
             if not internal:
                 headers['X-Forwarded-For'] = address[0]
                 headers['X-Forwarded-Protocol'] = ""
+                headers['X-Forwarded-Proto'] = ""
             # Make sure they're not using odd encodings
             if "Transfer-Encoding" in headers:
                 self.send_error(sock, 411, "Length Required")
                 return
             # Match the host to an action
-            action = self.resolve_host(host)
+            protocol = "http"
+            if headers.get('X-Forwarded-Protocol', headers.get('X-Forwarded-Proto', "")).lower() in ("ssl", "https"):
+                protocol = "https"
+            action = self.resolve_host(host, protocol)
             # Record us as an open connection
             stats_dict = self.stats.setdefault(action.matched_host, {})
             stats_dict['open_requests'] = stats_dict.get('open_requests', 0) + 1
