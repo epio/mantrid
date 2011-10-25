@@ -11,6 +11,7 @@ class MockBalancer(object):
 
     def __init__(self, fixed_action=None):
         self.fixed_action = None
+        self.static_dir = "/tmp/"
     
     def resolve_host(self, host):
         return self.fixed_action
@@ -49,7 +50,7 @@ class ActionTests(TestCase):
         sock = MockSocket()
         action.handle(sock, "", "/", {})
         self.assertEqual(
-            open(os.path.join(os.path.dirname(__file__), "..", "errors", "timeout.http")).read(),
+            open(os.path.join(os.path.dirname(__file__), "..", "static", "timeout.http")).read(),
             sock.data,
         )
 
@@ -59,7 +60,7 @@ class ActionTests(TestCase):
         sock = MockSocket()
         action.handle(sock, "", "/", {})
         self.assertEqual(
-            open(os.path.join(os.path.dirname(__file__), "..", "errors", "unknown.http")).read(),
+            open(os.path.join(os.path.dirname(__file__), "..", "static", "unknown.http")).read(),
             sock.data,
         )
 
@@ -69,7 +70,7 @@ class ActionTests(TestCase):
         sock = MockSocket()
         action.handle(sock, "", "/", {})
         self.assertEqual(
-            open(os.path.join(os.path.dirname(__file__), "..", "errors", "no-hosts.http")).read(),
+            open(os.path.join(os.path.dirname(__file__), "..", "static", "no-hosts.http")).read(),
             sock.data,
         )
 
@@ -96,6 +97,20 @@ class ActionTests(TestCase):
         action.handle(sock, "", "/bears2/", {})
         self.assertEqual(
             "HTTP/1.0 302 Found\r\nLocation: https://meme-overload.com/bears2/\r\n\r\n",
+            sock.data,
+        )
+        # Test with same-protocol
+        action = Redirect(MockBalancer(), "example.com", "example.com", redirect_to="example.net")
+        sock = MockSocket()
+        action.handle(sock, "", "/test/", {})
+        self.assertEqual(
+            "HTTP/1.0 302 Found\r\nLocation: http://example.net/test/\r\n\r\n",
+            sock.data,
+        )
+        sock = MockSocket()
+        action.handle(sock, "", "/test/", {"X-Forwarded-Protocol": "SSL"})
+        self.assertEqual(
+            "HTTP/1.0 302 Found\r\nLocation: https://example.net/test/\r\n\r\n",
             sock.data,
         )
 
@@ -128,7 +143,7 @@ class ActionTests(TestCase):
             "Spin did not last for long enough"
         )
         self.assertEqual(
-            open(os.path.join(os.path.dirname(__file__), "..", "errors", "timeout.http")).read(),
+            open(os.path.join(os.path.dirname(__file__), "..", "static", "timeout.http")).read(),
             sock.data,
         )
         # Now, ensure it picks up a change

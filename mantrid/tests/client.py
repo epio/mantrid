@@ -1,5 +1,6 @@
 import unittest
 import eventlet
+import socket
 from ..loadbalancer import Balancer
 from ..client import MantridClient
 
@@ -27,7 +28,12 @@ class ClientTests(unittest.TestCase):
 
     def setUp(self):
         self.__class__.next_port += 3
-        self.balancer = Balancer({self.next_port: False, self.next_port + 1: True}, self.next_port + 2, "/does/not/exist")
+        self.balancer = Balancer(
+            [(("0.0.0.0", self.next_port), socket.AF_INET)],
+            [(("0.0.0.0", self.next_port + 1), socket.AF_INET)],
+            [(("0.0.0.0", self.next_port + 2), socket.AF_INET)],
+            "/tmp/mantrid-test-state",
+        )
         self.balancer_thread = eventlet.spawn(self.balancer.run)
         eventlet.sleep(0.1)
         self.client = MantridClient("http://127.0.0.1:%i" % (self.next_port + 2))

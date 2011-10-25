@@ -248,24 +248,25 @@ class Balancer(object):
             concurrency = 10000,
         )
 
-    def resolve_host(self, host):
+    def resolve_host(self, host, protocol="http"):
         # Special case for empty hosts dict
         if not self.hosts:
             return NoHosts(self, host, "unknown")
         # Check for an exact or any subdomain matches
         bits = host.split(".")
         for i in range(len(bits)):
-            subhost = ".".join(bits[i:])
-            if subhost in self.hosts:
-                action, kwargs, allow_subs = self.hosts[subhost]
-                if allow_subs or i == 0:
-                    action_class = self.action_mapping[action]
-                    return action_class(
-                        balancer = self,
-                        host = host,
-                        matched_host = subhost,
-                        **kwargs
-                    )
+            for prefix in ["%s://" % protocol, ""]:
+                subhost = prefix + (".".join(bits[i:]))
+                if subhost in self.hosts:
+                    action, kwargs, allow_subs = self.hosts[subhost]
+                    if allow_subs or i == 0:
+                        action_class = self.action_mapping[action]
+                        return action_class(
+                            balancer = self,
+                            host = host,
+                            matched_host = subhost,
+                            **kwargs
+                        )
         return Unknown(self, host, "unknown")
 
     def handle(self, sock, address, internal=False):

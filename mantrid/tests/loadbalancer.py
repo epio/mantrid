@@ -1,6 +1,6 @@
 from unittest import TestCase
 from ..loadbalancer import Balancer
-from ..actions import Empty, Unknown, Redirect, Spin
+from ..actions import Empty, Unknown, Redirect, Spin, Proxy
 
 
 class BalancerTests(TestCase):
@@ -8,7 +8,7 @@ class BalancerTests(TestCase):
 
     def test_resolution(self):
         "Tests name resolution"
-        balancer = Balancer(None, None, None)
+        balancer = Balancer(None, None, None, None)
         balancer.hosts = {
             "localhost": [
                 "empty",
@@ -20,9 +20,14 @@ class BalancerTests(TestCase):
                 {},
                 True,
             ],
-            "ep.io": [
+            "http://ep.io": [
                 "redirect",
-                {"redirect_to": "http://www.ep.io"},
+                {"redirect_to": "https://www.ep.io"},
+                True,
+            ],
+            "ep.io": [
+                "proxy",
+                {"backends": ["0.0.0.0:0"]},
                 True,
             ],
         }
@@ -38,6 +43,10 @@ class BalancerTests(TestCase):
         self.assertEqual(
             balancer.resolve_host("ep.io").__class__,
             Redirect,
+        )
+        self.assertEqual(
+            balancer.resolve_host("ep.io", "https").__class__,
+            Proxy,
         )
         # Test subdomain resolution
         self.assertEqual(

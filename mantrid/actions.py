@@ -85,13 +85,19 @@ class Redirect(Action):
     def __init__(self, balancer, host, matched_host, redirect_to):
         super(Redirect, self).__init__(balancer, host, matched_host)
         self.redirect_to = redirect_to
-        assert "://" in self.redirect_to
 
     def handle(self, sock, read_data, path, headers):
         "Sends back a static error page."
+        if "://" not in self.redirect_to:
+            destination = "http%s://%s" % (
+                "s" if headers.get('X-Forwarded-Protocol', "").lower() in ("https", "ssl") else "",
+                self.redirect_to
+            )
+        else:
+            destination = self.redirect_to
         try:
             sock.sendall("HTTP/1.0 302 Found\r\nLocation: %s/%s\r\n\r\n" % (
-                self.redirect_to.rstrip("/"),
+                destination.rstrip("/"),
                 path.lstrip("/"),
             ))
         except socket.error, e:
