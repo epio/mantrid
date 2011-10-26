@@ -105,6 +105,8 @@ class Balancer(object):
                 assert isinstance(state, dict)
                 self.hosts = state['hosts']
                 self.stats = state['stats']
+            for key in self.stats:
+                self.stats[key]['open_requests'] = 0
         except (IOError, OSError):
             # There is no state file; start empty.
             self.hosts = {}
