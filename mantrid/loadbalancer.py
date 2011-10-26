@@ -290,8 +290,7 @@ class Balancer(object):
             try:
                 host = headers['Host']
             except KeyError:
-                self.send_error(sock, 404, "Not Found")
-                return
+                host = "unknown"
             headers['Connection'] = "close"
             if not internal:
                 headers['X-Forwarded-For'] = address[0]
@@ -299,7 +298,7 @@ class Balancer(object):
                 headers['X-Forwarded-Proto'] = ""
             # Make sure they're not using odd encodings
             if "Transfer-Encoding" in headers:
-                self.send_error(sock, 411, "Length Required")
+                sock.sendall("HTTP/1.0 411 Length Required\r\nConnection: close\r\nContent-length: 0\r\n\r\n")
                 return
             # Match the host to an action
             protocol = "http"
@@ -324,7 +323,7 @@ class Balancer(object):
                 stats_dict['bytes_sent'] = stats_dict.get('bytes_sent', 0) + sock.bytes_sent
                 stats_dict['bytes_received'] = stats_dict.get('bytes_received', 0) + sock.bytes_received
         except socket.error, e:
-            if e.errno != 32:
+            if e.errno not in (32, 110, 104):  # Broken pipe, timeout, reset by peer
                 logging.error(traceback.format_exc())
         except:
             logging.error(traceback.format_exc())
