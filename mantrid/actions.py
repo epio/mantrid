@@ -149,7 +149,7 @@ class Spin(Action):
     """
 
     timeout = 120
-    check_interval = 5
+    check_interval = 1
 
     def __init__(self, balancer, host, matched_host, timeout=None, check_interval=None):
         super(Spin, self).__init__(balancer, host, matched_host)
