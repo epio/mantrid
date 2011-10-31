@@ -30,6 +30,7 @@ class Balancer(object):
         "redirect": Redirect,
         "unknown": Unknown,
         "spin": Spin,
+        "no_hosts": NoHosts,
     }
 
     def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/"):

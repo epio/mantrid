@@ -10,6 +10,7 @@ The default settings would look like this::
     state_file = /var/lib/mantrid/state.json
     uid = 4321
     gid = 4321
+    static_dir = /etc/mantrid/static/
 
 
 Address Formats
@@ -73,3 +74,9 @@ gid
 ~~~
 
 The GID to drop to once Mantrid has started. Defaults to 4321.
+
+
+static_dir
+~~~~~~~~~~
+
+The directory which Mantrid will look in for static response files (ending in ``.http``) used by the ``static`` action. Defaults to ``/etc/mantrid/static/``.

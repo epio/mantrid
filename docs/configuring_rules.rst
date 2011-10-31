@@ -16,9 +16,9 @@ For example, if we asked for the host "www.andrew.example.com", Mantrid would tr
 
 If there was an entry for ``andrew.example.com`` with subdomain matches allowed, this would match; however, if only exact matches were allowed, this would not match that entry.
 
-Each rule is made up of three parts: an action name, arguments for that action (as keywords), and the "are subdomain matches allowed" flag. You can read about the :doc:`actions` and see what options you have.
+Each rule is made up of three parts: an :doc:`action name <actions>`, arguments for that action (as keywords), and the "are subdomain matches allowed" flag. You can read about the :doc:`actions` and see what options you have.
 
-All changes made via the API take effect immediately.
+All changes made via the API take effect immediately, for all future requests.
 
 
 Adding/Updating a rule
