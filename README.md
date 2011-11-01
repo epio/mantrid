@@ -38,5 +38,5 @@ A command-line interface, `mantrid-client`, ships with Mantrid to make simple in
 Contributing
 ------------
 
-Mantrid is released under a BSD (3-clause) license. Contributions are very welcome.
+Mantrid is released under a BSD (3-clause) license. Contributions are very welcome. If you discover a security issue, please email <security@ep.io>.
 
