@@ -53,6 +53,10 @@ Running as a normal user
 
 If you only make Mantrid listen on port 1024 or greater, there is no need to run it as root. Mantrid won't be able to automatically change resource limits as a normal user, but you can do it manually with things like ``ulimit`` or ``pam_limits``.
 
+
+Table of contents
+-----------------
+
 .. toctree::
     :maxdepth: 2
 
