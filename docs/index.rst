@@ -22,9 +22,7 @@ Then run::
 
     $ sudo pip install mantrid
 
-You can improve performance by using PyPy 1.7 [#]_ or greater. Just use the pypy-specific pip to install it.
-
-.. [#] At the time of writing, 1.7 is not yet released, but a nightly build will work.
+You can improve performance by using PyPy 1.7 or greater. Just use the pypy-specific pip to install it. At the time of writing, PyPy 1.7 is not yet released, but a nightly build will work.
 
 
 Quick start
