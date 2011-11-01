@@ -31,7 +31,7 @@ Then visit http://localhost/ to see the test page.
 Configuration
 -------------
 
-Mantrid is partially configured using a small configuration file (/etc/mantrid/mantrid.conf) which sets up basic things like ports to listen on. The hostnames and load balancing rules are configured at runtime using a REST API.
+Mantrid is partially configured using a small configuration file (`/etc/mantrid/mantrid.conf`) which sets up basic things like ports to listen on. The hostnames and load balancing rules are configured at runtime using a REST API.
 
 A command-line interface, `mantrid-client`, ships with Mantrid to make simple interactions with the API easier.
 
