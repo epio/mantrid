@@ -4,7 +4,7 @@
 Mantrid Documentation
 =====================
 
-Mantrid is a pure-Python HTTP load balancer. It is designed with high availability and simplicity in mind: it is configured at runtime with JSON over HTTP and it can temporarily hold open connections while backend servers restart. It is ideal for serving large numbers of hostnames and monitors bandwidth and connection statistics.
+Mantrid is a pure-Python HTTP load balancer. It is designed with high availability and simplicity in mind: it is configured at runtime with JSON over HTTP and can temporarily hold open connections while backend servers restart. It monitors bandwidth and connection statistics and is ideal for serving large numbers of hostnames.
 
 It trades some raw speed for flexibility, but is still designed to be fast. Its aim is to have latency of no more than 10ms, and have no more than a 10% reduction in throughput.
 
