@@ -13,7 +13,7 @@ The default settings would look like this::
     static_dir = /etc/mantrid/static/
 
 
-Address Formats
+Address formats
 ---------------
 
 Mantrid supports both IPv4 and IPv6, so bind addresses can be supplied in both formats::
@@ -43,7 +43,7 @@ bind_internal
 
 Tells Mantrid to bind to the given address and port to serve internal proxies. Use the address ``*`` to listen on all available addresses.
 
-Requests from internal proxies will not have their ``X-Forwarded-For`` and ``X-Forwarded-Protocol`` headers removed; 'internal' bind addresses are for use behind an SSL terminator, which should add these headers itself.
+Requests from internal proxies will not have their ``X-Forwarded-For`` and ``X-Forwarded-Protocol`` headers removed. 'Internal' bind addresses are for use behind an SSL terminator, which should add these headers itself.
 
 This option may be specified more than once to listen on multiple ports or addresses.
 
@@ -80,3 +80,5 @@ static_dir
 ~~~~~~~~~~
 
 The directory which Mantrid will look in for static response files (ending in ``.http``) used by the ``static`` action. Defaults to ``/etc/mantrid/static/``.
+
+

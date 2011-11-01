@@ -59,4 +59,5 @@ If you only make Mantrid listen on port 1024 or greater, there is no need to run
     configuration_file
     configuring_rules
     actions
-    http_api
+    rest_api
+

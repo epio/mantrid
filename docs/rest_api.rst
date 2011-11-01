@@ -1,11 +1,11 @@
-HTTP API
+REST API
 ========
 
-Mantrid is configured mainly via a HTTP API, available on port 8042 by default. All changes are done using REST with JSON responses.
+Mantrid is configured mainly via a REST API, available on port 8042 by default. All changes are done using HTTP with JSON responses.
 
 Note that a *rule* is always formatted as a triple of ``[action_name, kwargs, match_subdomains]``, where ``action_name`` is a string, ``kwargs`` is a mapping of strings to strings or integers, and ``match_subdomains`` is a boolean.
 
-Statistics are returned as a dictionary with four entries - ``open_requests``, ``completed_requests``, ``bytes_sent``, and ``bytes_received``. The names are reasonably self-explanatory, but note that the two byte measurements are only updated once a request is completed.
+Statistics are returned as a dictionary with four entries: ``open_requests``, ``completed_requests``, ``bytes_sent``, and ``bytes_received``. The names are reasonably self-explanatory, but note that the two byte measurements are only updated once a request is completed.
 
 
 /hostname/
@@ -57,3 +57,5 @@ GET
 ~~~
 
 Returns the statistics for just the specified hostname.
+
+
