@@ -1,14 +1,14 @@
 
 .. _index:
 
-Documentation
-=============
+Mantrid Documentation
+=====================
 
-Welcome to the Mantrid documentation. Mantrid is a dynamically-configurable loadbalancer designed for large numbers of distinct hosts; however, it will just as easily serve a site with only one or two hosts.
+Mantrid is a pure-Python load balancer for large numbers of constantly changing hostnames. It is configured with a REST API, monitors bandwidth and connection statistics, and can temporarily hold connections open while backend servers restart.
 
-Key features include the ability to change the configuration on-the-fly via a HTTP API, the ability to temporarily hold connections open while a backend server restarts, configurable matching of subdomains, built-in error pages and redirects, and bandwidth and connection monitoring.
+It trades some raw speed for flexibility, but is still designed to be fast. Its aim is to have latency of no more than 10ms, and have no more than a 10% reduction in throughput.
 
-The main Git repository can be found at `github.com/epio/mantrid <http://www.github.com/epio/mantrid/>`_.
+It's available on `GitHub <https://github.com/epio/mantrid>`_.
 
 
 .. toctree::
