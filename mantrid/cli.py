@@ -113,7 +113,10 @@ class MantridCli(object):
             sys.exit(1)
         # Expand some options from text to datastructure
         if "backends" in options:
-            options['backends'] = [bit.split(":", 1) for bit in options['backends'].split(",")]
+            options['backends'] = [
+                (lambda x: (x[0], int(x[1])))(bit.split(":", 1))
+                for bit in options['backends'].split(",")
+            ]
         # Set!
         self.client.set(
             hostname,
