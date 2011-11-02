@@ -28,7 +28,8 @@ setup(
     package_data = {
         "mantrid": ["errors/*.http"],
     },
-    requires = [
+    install_requires = [
+        "httplib2",
         "argparse",
         "eventlet (>=0.9.16)",
     ],
