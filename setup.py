@@ -2,9 +2,9 @@
 
 # Use setuptools if we can
 try:
-    from setuptools import setup, find_packages
+    from setuptools import setup
 except ImportError:
-    from distutils import setup, find_packages
+    from distutils import setup
 
 from mantrid import __version__
 
@@ -13,8 +13,12 @@ setup(
     version = __version__,
     author = "Epio Limited",
     author_email= "team@ep.io",
+    url = "http://github.com/epio/mantrid/",
     description = 'A pure-Python loadbalancer.',
-    packages = find_packages("."),
+    packages = [
+        "mantrid",
+        "mantrid.tests",
+    ],
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: BSD License',
@@ -31,6 +35,6 @@ setup(
     install_requires = [
         "httplib2",
         "argparse",
-        "eventlet (>=0.9.16)",
+        "eventlet>=0.9.16",
     ],
 )
