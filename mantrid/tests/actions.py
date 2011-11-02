@@ -1,4 +1,6 @@
 import os
+import errno
+import socket
 import time
 import eventlet
 from eventlet.timeout import Timeout
@@ -12,7 +14,7 @@ class MockBalancer(object):
     def __init__(self, fixed_action=None):
         self.fixed_action = None
         self.static_dir = "/tmp/"
-    
+
     def resolve_host(self, host):
         return self.fixed_action
 
@@ -26,10 +28,19 @@ class MockSocket(object):
     def send(self, data):
         self.data += data
         return len(data)
-    
+
     def sendall(self, data):
         self.data += data
 
+class MockErrorSocket(object):
+    "Fake Socket class that raises a specific error message on use."
+
+    def __init__(self, error_code):
+        self.error_code = error_code
+
+    def _error(self, *args, **kwargs):
+        raise socket.error(self.error_code, os.strerror(self.error_code))
+    sendall = _error
 
 class ActionTests(TestCase):
     "Tests the various actions"
@@ -161,3 +172,17 @@ class ActionTests(TestCase):
             "HTTP/1.0 402 Payment Required\r\nConnection: close\r\nContent-length: 0\r\n\r\n",
             sock.data,
         )
+
+    def test_socket_errors(self):
+        for action in [
+            Empty(MockBalancer(), "", "", code=500),
+            Unknown(MockBalancer(), "", ""),
+            Redirect(MockBalancer(), "", "", redirect_to="http://pypy.org/"),
+        ]:
+            sock = MockErrorSocket(errno.EPIPE)
+            # Doesn't error
+            action.handle(sock, "", "/", {})
+            sock = MockErrorSocket(errno.EBADF)
+            with self.assertRaises(socket.error) as cm:
+                action.handle(sock, "", "/", {})
+            self.assertEqual(cm.exception.errno, errno.EBADF)

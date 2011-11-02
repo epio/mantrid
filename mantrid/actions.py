@@ -2,6 +2,7 @@
 Contains Mantrid's built-in actions.
 """
 
+import errno
 import os
 import random
 import eventlet
@@ -30,13 +31,13 @@ class Empty(Action):
     def __init__(self, balancer, host, matched_host, code):
         super(Empty, self).__init__(balancer, host, matched_host)
         self.code = code
-    
+
     def handle(self, sock, read_data, path, headers):
         "Sends back a static error page."
         try:
             sock.sendall("HTTP/1.0 %s %s\r\nConnection: close\r\nContent-length: 0\r\n\r\n" % (self.code, responses.get(self.code, "Unknown")))
         except socket.error, e:
-            if e.errno != 32:
+            if e.errno != errno.EPIPE:
                 raise
 
 
@@ -49,7 +50,7 @@ class Static(Action):
         super(Static, self).__init__(balancer, host, matched_host)
         if type is not None:
             self.type = type
-    
+
     def handle(self, sock, read_data, path, headers):
         "Sends back a static error page."
         assert self.type is not None
@@ -61,7 +62,7 @@ class Static(Action):
                 with open(os.path.join(os.path.dirname(__file__), "static", "%s.http" % self.type)) as fh:
                     sock.sendall(fh.read())
         except socket.error, e:
-            if e.errno != 32:
+            if e.errno != errno.EPIPE:
                 raise
 
 
@@ -101,7 +102,7 @@ class Redirect(Action):
                 path.lstrip("/"),
             ))
         except socket.error, e:
-            if e.errno != 32:
+            if e.errno != errno.EPIPE:
                 raise
 
 
@@ -138,7 +139,7 @@ class Proxy(Action):
                 size = send_onwards(read_data)
                 size += SocketMelder(sock, server_sock).run()
             except socket.error, e:
-                if e.errno != 32:
+                if e.errno != errno.EPIPE:
                     raise
 
 

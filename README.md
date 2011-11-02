@@ -1,7 +1,7 @@
 Mantrid
 =======
 
-Mantrid is a pure-Python HTTP load balancer. It is designed with high availability and simplicity in mind: it is configured at runtime with JSON over HTTP and can temporarily hold open connections while backend servers restart. It monitors bandwidth and connection statistics and is ideal for serving large numbers of hostnames.
+Mantrid is the HTTP load balancer used for [Epio](https://www.ep.io). It is designed with high availability and simplicity in mind: it is configured at runtime with JSON over HTTP and can temporarily hold open connections while backend servers restart. It monitors bandwidth and connection statistics and is ideal for serving large numbers of hostnames.
 
 It trades some raw speed for flexibility, but is still designed to be fast. Its aim is to have latency of no more than 10ms, and have no more than a 10% reduction in throughput.
 
@@ -31,12 +31,12 @@ Then visit http://localhost/ to see the test page.
 Configuration
 -------------
 
-Mantrid is partially configured using a small configuration file (/etc/mantrid/mantrid.conf) which sets up basic things like ports to listen on. The hostnames and load balancing rules are configured at runtime using a HTTP API.
+Mantrid is partially configured using a small configuration file (`/etc/mantrid/mantrid.conf`) which sets up basic things like ports to listen on. The hostnames and load balancing rules are configured at runtime using a REST API, and persisted to a state file on disk so they survive restarts.
 
 A command-line interface, `mantrid-client`, ships with Mantrid to make simple interactions with the API easier.
 
 Contributing
 ------------
 
-Mantrid is released under a BSD (3-clause) license. Contributions are very welcome.
+Mantrid is released under a BSD (3-clause) license. Contributions are very welcome. If you discover a security issue, please email <security@ep.io>.
 
