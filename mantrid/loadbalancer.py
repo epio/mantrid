@@ -1,4 +1,5 @@
 import eventlet
+import errno
 import logging
 import traceback
 import mimetools
@@ -50,7 +51,7 @@ class Balancer(object):
         self.uid = uid
         self.gid = gid
         self.static_dir = static_dir
-    
+
     @classmethod
     def main(cls):
         # Parse command-line args
@@ -112,7 +113,7 @@ class Balancer(object):
             # There is no state file; start empty.
             self.hosts = {}
             self.stats = {}
- 
+
     def save(self):
         "Saves the state to the state file"
         with open(self.state_file, "w") as fh:
@@ -120,7 +121,7 @@ class Balancer(object):
                 "hosts": self.hosts,
                 "stats": self.stats,
             }, fh)
-    
+
     def run(self):
         # First, initialise the process
         self.load()
@@ -233,10 +234,10 @@ class Balancer(object):
         try:
             sock = eventlet.listen(address, family)
         except socket.error, e:
-            if e.errno == 98:
+            if e.errno == errno.EADDRINUSE:
                 logging.critical("Cannot listen on (%s, %s): already in use" % (address, family))
                 raise
-            elif e.errno == 13 and address[1] <= 1024:
+            elif e.errno == errno.EACCES and address[1] <= 1024:
                 logging.critical("Cannot listen on (%s, %s) (you might need to launch as root)" % (address, family))
                 return
             logging.critical("Cannot listen on (%s, %s): %s" % (address, family, e))
@@ -326,14 +327,14 @@ class Balancer(object):
                 stats_dict['bytes_sent'] = stats_dict.get('bytes_sent', 0) + sock.bytes_sent
                 stats_dict['bytes_received'] = stats_dict.get('bytes_received', 0) + sock.bytes_received
         except socket.error, e:
-            if e.errno not in (32, 110, 104):  # Broken pipe, timeout, reset by peer
+            if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
                 logging.error(traceback.format_exc())
         except:
             logging.error(traceback.format_exc())
             try:
                 sock.sendall("HTTP/1.0 500 Internal Server Error\r\n\r\nThere has been an internal error in the load balancer.")
             except socket.error, e:
-                if e.errno != 32:
+                if e.errno != errno.EPIPE:
                     raise
         finally:
             try:
