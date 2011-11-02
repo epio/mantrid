@@ -1,0 +1,11 @@
+1.0.1
+-----
+
+ * Fixed issue with setting backend ports via mantrid-client
+ * Changed error constants to use the errno module
+
+
+1.0
+---
+
+ * Initial release
