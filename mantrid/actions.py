@@ -51,16 +51,27 @@ class Static(Action):
         if type is not None:
             self.type = type
 
+    # Try to get sendfile() using ctypes; otherwise, fall back
+    try:
+        import ctypes
+        _sendfile = ctypes.CDLL("libc.so.6").sendfile
+    except:
+        _sendfile = None
+
     def handle(self, sock, read_data, path, headers):
         "Sends back a static error page."
         assert self.type is not None
         try:
+            # Get the correct file
             try:
-                with open(os.path.join(self.balancer.static_dir, "%s.http" % self.type)) as fh:
-                    sock.sendall(fh.read())
+                fh = open(os.path.join(self.balancer.static_dir, "%s.http" % self.type))
             except IOError:
-                with open(os.path.join(os.path.dirname(__file__), "static", "%s.http" % self.type)) as fh:
-                    sock.sendall(fh.read())
+                fh = open(os.path.join(os.path.dirname(__file__), "static", "%s.http" % self.type))
+            # Send it, using sendfile if poss.
+            if self._sendfile:
+                self._sendfile(sock.fileno(), fh.fileno(), 0, os.fstat(fh.fileno()).st_size)
+            else:
+                sock.sendall(fh.read())
         except socket.error, e:
             if e.errno != errno.EPIPE:
                 raise
