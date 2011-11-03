@@ -55,7 +55,7 @@ class Static(Action):
     try:
         import ctypes
         _sendfile = ctypes.CDLL("libc.so.6").sendfile
-        _sendfile.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_off_t, ctypes.c_size_t]
+        _sendfile.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_long, ctypes.c_size_t]
         _sendfile.restype = ctypes.c_ssize_t
     except Exception:
         _sendfile = None
@@ -74,8 +74,9 @@ class Static(Action):
                 self._sendfile(sock.fileno(), fh.fileno(), 0, os.fstat(fh.fileno()).st_size)
             except (TypeError, AttributeError):
                 sock.sendall(fh.read())
-            # Close the file
+            # Close the file and socket
             fh.close()
+            sock.close()
         except socket.error, e:
             if e.errno != errno.EPIPE:
                 raise

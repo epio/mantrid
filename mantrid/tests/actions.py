@@ -3,8 +3,10 @@ import errno
 import socket
 import time
 import eventlet
+import unittest
+httplib2 = eventlet.import_patched("httplib2")
 from eventlet.timeout import Timeout
-from unittest import TestCase
+from ..loadbalancer import Balancer
 from ..actions import Empty, Static, Unknown, NoHosts, Redirect, Proxy, Spin
 
 
@@ -32,6 +34,9 @@ class MockSocket(object):
     def sendall(self, data):
         self.data += data
 
+    def close(self):
+        pass
+
 
 class MockErrorSocket(object):
     "Fake Socket class that raises a specific error message on use."
@@ -44,7 +49,7 @@ class MockErrorSocket(object):
     sendall = _error
 
 
-class ActionTests(TestCase):
+class ActionTests(unittest.TestCase):
     "Tests the various actions"
 
     def test_empty(self):
@@ -188,3 +193,49 @@ class ActionTests(TestCase):
             with self.assertRaises(socket.error) as cm:
                 action.handle(sock, "", "/", {})
             self.assertEqual(cm.exception.errno, errno.EBADF)
+
+
+class LiveActionTests(unittest.TestCase):
+    """
+    Tests that the client/API work correctly.
+    """
+
+    next_port = 30300
+
+    def setUp(self):
+        self.__class__.next_port += 3
+        self.balancer = Balancer(
+            [(("0.0.0.0", self.next_port), socket.AF_INET)],
+            [(("0.0.0.0", self.next_port + 1), socket.AF_INET)],
+            [(("0.0.0.0", self.next_port + 2), socket.AF_INET)],
+            "/tmp/mantrid-test-state-2",
+        )
+        self.balancer_thread = eventlet.spawn(self.balancer.run)
+        eventlet.sleep(0.1)
+        self.balancer.hosts = {
+            "test-host.com": ["static", {"type": "test"}, True],
+        }
+    
+    def tearDown(self):
+        self.balancer.running = False
+        self.balancer_thread.kill()
+        eventlet.sleep(0.1)
+
+    def test_unknown(self):
+        # Send a HTTP request to the balancer, ensure the response
+        # is the same as the "unknown" template
+        h = httplib2.Http()
+        resp, content = h.request(
+            "http://127.0.0.1:%i" % self.next_port,
+            "GET",
+        )
+        self.assertEqual(
+            '503',
+            resp['status'],
+        )
+        expected_content = open(os.path.join(os.path.dirname(__file__), "..", "static", "unknown.http")).read()
+        expected_content = expected_content[expected_content.index("\r\n\r\n") + 4:]
+        self.assertEqual(
+            expected_content,
+            content,
+        )

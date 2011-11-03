@@ -218,12 +218,15 @@ class Balancer(object):
         # Actually serve management
         logging.info("Listening for management on %s" % (address, ))
         management_app = ManagementApp(self)
-        with open("/dev/null", "w") as log_dest:
-            wsgi.server(
-                sock,
-                management_app.handle,
-                log = log_dest,
-            )
+        try:
+            with open("/dev/null", "w") as log_dest:
+                wsgi.server(
+                    sock,
+                    management_app.handle,
+                    log = log_dest,
+                )
+        finally:
+            sock.close()
 
     ### Client handling ###
 
@@ -246,11 +249,14 @@ class Balancer(object):
         eventlet.sleep(0.5)
         # Start serving
         logging.info("Listening for requests on %s" % (address, ))
-        eventlet.serve(
-            sock,
-            lambda sock, addr: self.handle(sock, addr, internal),
-            concurrency = 10000,
-        )
+        try:
+            eventlet.serve(
+                sock,
+                lambda sock, addr: self.handle(sock, addr, internal),
+                concurrency = 10000,
+            )
+        finally:
+            sock.close()
 
     def resolve_host(self, host, protocol="http"):
         # Special case for empty hosts dict
