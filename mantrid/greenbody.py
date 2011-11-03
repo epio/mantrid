@@ -17,4 +17,5 @@ class GreenBody(GreenPool):
     
     def _spawn_done(self, coro):
         super(GreenBody, self)._spawn_done(coro)
-        self.one_exited.send(coro.wait())
+        if not self.one_exited.ready():
+            self.one_exited.send(coro.wait())
