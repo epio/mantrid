@@ -1,3 +1,15 @@
+1.0.3
+-----
+
+ * Fixed traceback when more than one port being bound was unavailable
+
+
+1.0.2
+-----
+
+ * Fixed issue with MANIFEST.in including the wrong static files
+
+
 1.0.1
 -----
 
