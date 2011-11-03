@@ -36,6 +36,8 @@ To run Mantrid with a default configuration, just run::
 
 The default configuration is to serve external clients on port 80 (from all available addresses), and to have management on port 8042 bound to localhost.
 
+See the :doc:`guides/simple` article for a walkthrough of an initial, simple installation.
+
 
 Configuration
 -------------
@@ -64,4 +66,5 @@ Table of contents
     configuring_rules
     actions
     rest_api
+    guides/simple
 
