@@ -15,6 +15,11 @@ setup(
     author_email= "team@ep.io",
     url = "http://github.com/epio/mantrid/",
     description = 'A pure-Python loadbalancer.',
+    long_description = """
+        A Python load balancer that is also configurable at runtime.
+
+        Development version: https://github.com/epio/mantrid/tarball/master#egg=mantrid-dev
+    """,
     packages = [
         "mantrid",
         "mantrid.tests",
