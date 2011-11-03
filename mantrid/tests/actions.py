@@ -20,7 +20,7 @@ class MockBalancer(object):
 
 
 class MockSocket(object):
-    "Fake Socket class that remembers what was sent"
+    "Fake Socket class that remembers what was sent. Doesn't implement sendfile."
 
     def __init__(self):
         self.data = ""
@@ -32,6 +32,7 @@ class MockSocket(object):
     def sendall(self, data):
         self.data += data
 
+
 class MockErrorSocket(object):
     "Fake Socket class that raises a specific error message on use."
 
@@ -41,6 +42,7 @@ class MockErrorSocket(object):
     def _error(self, *args, **kwargs):
         raise socket.error(self.error_code, os.strerror(self.error_code))
     sendall = _error
+
 
 class ActionTests(TestCase):
     "Tests the various actions"

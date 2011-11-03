@@ -55,7 +55,9 @@ class Static(Action):
     try:
         import ctypes
         _sendfile = ctypes.CDLL("libc.so.6").sendfile
-    except:
+        _sendfile.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_off_t, ctypes.c_size_t]
+        _sendfile.restype = ctypes.c_ssize_t
+    except Exception:
         _sendfile = None
 
     def handle(self, sock, read_data, path, headers):
@@ -67,11 +69,13 @@ class Static(Action):
                 fh = open(os.path.join(self.balancer.static_dir, "%s.http" % self.type))
             except IOError:
                 fh = open(os.path.join(os.path.dirname(__file__), "static", "%s.http" % self.type))
-            # Send it, using sendfile if poss.
-            if self._sendfile:
+            # Send it, using sendfile if poss. (no fileno() means we're probably using mock sockets)
+            try:
                 self._sendfile(sock.fileno(), fh.fileno(), 0, os.fstat(fh.fileno()).st_size)
-            else:
+            except (TypeError, AttributeError):
                 sock.sendall(fh.read())
+            # Close the file
+            fh.close()
         except socket.error, e:
             if e.errno != errno.EPIPE:
                 raise
