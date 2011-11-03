@@ -26,7 +26,7 @@ setup(
         mantrid-client = mantrid.cli:MantridCli.main
     """,
     package_data = {
-        "mantrid": ["errors/*.http"],
+        "mantrid": ["static/*.http"],
     },
     requires = [
         "argparse",

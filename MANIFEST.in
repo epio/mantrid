@@ -1,1 +1,1 @@
-include mantrid/errors/*.http
+include mantrid/static/*.http
